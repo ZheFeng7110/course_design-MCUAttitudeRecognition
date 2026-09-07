@@ -4,3 +4,18 @@
 [submodule "deps/emdevif_collection/emdevif_stm32_peripheral"]
 	path = deps/emdevif_collection/emdevif_stm32_peripheral
 	url = https://github.com/CQUT-RoboMaster-ShiJi-DREAMER-ECU-Team/emdevif_stm32_peripheral
+[submodule "deps/tflite-micro"]
+	path = deps/tflite-micro
+	url = https://github.com/tensorflow/tflite-micro
+[submodule "deps/ruy"]
+	path = deps/ruy
+	url = https://github.com/google/ruy
+[submodule "deps/gemmlowp"]
+	path = deps/gemmlowp
+	url = https://github.com/google/gemmlowp
+[submodule "deps/CMSIS-NN"]
+	path = deps/CMSIS-NN
+	url = https://github.com/ARM-software/CMSIS-NN
+[submodule "deps/flatbuffers"]
+	path = deps/flatbuffers
+	url = https://github.com/google/flatbuffers

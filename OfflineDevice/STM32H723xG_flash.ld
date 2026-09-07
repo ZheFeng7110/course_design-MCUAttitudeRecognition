@@ -225,6 +225,15 @@ SECTIONS
     __bss_end__ = _ebss;
       PROVIDE( __bss_end = .);
   } >DTCMRAM
+
+  /* Tensor arena（TFLM）：RAM_D1 0x24000000，脱离 DTCM 128KB（计划 Phase 7.4） */
+  .tensor_arena (NOLOAD) : ALIGN(16)
+  {
+    __tensor_arena_start = .;
+    KEEP(*(.tensor_arena))
+    . = ALIGN(16);
+    __tensor_arena_end = .;
+  } >RAM_D1
   PROVIDE( __non_tls_bss_start = ADDR(.bss) );
 
   PROVIDE( __bss_start = __tbss_start );

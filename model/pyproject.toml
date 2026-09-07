@@ -1,0 +1,18 @@
+[project]
+name = "attitude-model"
+version = "0.1.0"
+description = "BMI088 姿态识别模型训练/量化/导出与数据采集工具（walk/run/fall）"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    # TF 原生 Windows wheel 最后版本为 2.10.1（GPU 无所谓，CPU 训练小模型足够）
+    "tensorflow==2.10.1",
+    # tf 2.10 的传递依赖；>=0.32 无 Windows wheel，必须钉住
+    "tensorflow-io-gcs-filesystem==0.31.0",
+    "numpy<1.24",
+    "pandas",
+    "pyserial",
+    "matplotlib",
+]
+
+[tool.uv]
+package = false

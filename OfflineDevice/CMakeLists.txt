@@ -1,8 +1,19 @@
 cmake_minimum_required(VERSION 3.30...4.4.0)
 
+#
+# This file is generated only once,
+# and is not re-generated if converter is called multiple times.
+#
+# User is free to modify the file as much as necessary
+#
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
@@ -12,18 +23,62 @@ set(CMAKE_PROJECT_NAME OfflineDevice)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-project(${CMAKE_PROJECT_NAME})
+project(${CMAKE_PROJECT_NAME} C CXX ASM)
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
-enable_language(C ASM)
+enable_language(C CXX ASM)
 
 add_executable(${CMAKE_PROJECT_NAME})
 
+# 应用代码：C++23 模块单元（.cppm）+ 链接期注入普通 TU（.cpp）
+file(GLOB ATTITUDE_APP_MODULES
+    "${CMAKE_CURRENT_SOURCE_DIR}/App/modules/*.cppm"
+)
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+    FILE_SET attitude_modules TYPE CXX_MODULES FILES ${ATTITUDE_APP_MODULES}
+)
+file(GLOB ATTITUDE_APP_PLAIN_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/App/src/*.cpp"
+)
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${ATTITUDE_APP_PLAIN_SOURCES})
+
 add_subdirectory(cmake/stm32cubemx)
+include(cmake/emdevif_config.cmake)
 
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/App/inc
+)
+
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
+    emdevif
+    emdevif_stm32_peripheral
 )
+
+# ---- TFLM 推理路径（Phase 7）：模型生成后开启 ----
+# 1. model/tools/gen_c_array.py 生成 App/src/model_data.cc
+if (ATTITUDE_ENABLE_TFLM)
+    include(cmake/tflm.cmake)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/App/inc/model_data.h
+        AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/App/src/model_data.cc)
+        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+            FILE_SET attitude_modules TYPE CXX_MODULES FILES
+            ${CMAKE_CURRENT_SOURCE_DIR}/App/modules/tflite/attitude.tflite.cppm
+        )
+        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/App/src/model_data.cc
+        )
+        target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ATTITUDE_ENABLE_TFLM)
+        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/App/src/tflite/tflite_backend.cpp
+        )
+        target_link_libraries(${CMAKE_PROJECT_NAME} tflm)
+    else ()
+        message(WARNING
+            "[ATTITUDE_ENABLE_TFLM] 缺少 App/src/model_data.{h,cc}：先训练导出并运行 "
+            "model/tools/gen_c_array.py 后重新配置；本次仅编译 tflm 静态库")
+    endif ()
+endif ()
