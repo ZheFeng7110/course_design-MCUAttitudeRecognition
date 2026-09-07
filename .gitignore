@@ -1,0 +1,13 @@
+**/.idea/
+**/.vscode/
+
+build/
+cmake-build-*/
+build-*/
+build_*/
+
+target/
+generated/
+
+**/__pycache__/
+**/compile_commands.json

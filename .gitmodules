@@ -1,0 +1,6 @@
+[submodule "deps/emdevif_collection/emdevif"]
+	path = deps/emdevif_collection/emdevif
+	url = https://github.com/CQUT-RoboMaster-ShiJi-DREAMER-ECU-Team/emdevif
+[submodule "deps/emdevif_collection/emdevif_stm32_peripheral"]
+	path = deps/emdevif_collection/emdevif_stm32_peripheral
+	url = https://github.com/CQUT-RoboMaster-ShiJi-DREAMER-ECU-Team/emdevif_stm32_peripheral
