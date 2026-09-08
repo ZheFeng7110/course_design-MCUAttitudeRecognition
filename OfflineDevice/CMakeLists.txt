@@ -7,6 +7,17 @@ cmake_minimum_required(VERSION 3.30...4.4.0)
 # User is free to modify the file as much as necessary
 #
 
+option(DO_NOT_USE_CCACHE "Disable CCache, even if it is available" OFF)
+
+find_program(CCACHE_PROGRAM ccache)
+if (CCACHE_PROGRAM AND (NOT DO_NOT_USE_CCACHE))
+    message(STATUS "CCache found: ${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+else ()
+    message(STATUS "CCache not found or disabled (DO_NOT_USE_CCACHE=${DO_NOT_USE_CCACHE}).")
+endif ()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
