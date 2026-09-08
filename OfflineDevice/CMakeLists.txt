@@ -28,7 +28,21 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 
 enable_language(C CXX ASM)
 
+option(ATTITUDE_ENABLE_TFLM "Enable TFLM if model_data exists" OFF)
+
 add_executable(${CMAKE_PROJECT_NAME})
+
+add_subdirectory(cmake/stm32cubemx)
+include(cmake/emdevif_config.cmake)
+
+# Remove wrong libob.a library dependency when using cpp files
+list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
+
+target_link_libraries(${CMAKE_PROJECT_NAME}
+    stm32cubemx
+    emdevif
+    emdevif_stm32_peripheral
+)
 
 # 应用代码：C++23 模块单元（.cppm）+ 链接期注入普通 TU（.cpp）
 file(GLOB ATTITUDE_APP_MODULES
@@ -37,26 +51,17 @@ file(GLOB ATTITUDE_APP_MODULES
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     FILE_SET attitude_modules TYPE CXX_MODULES FILES ${ATTITUDE_APP_MODULES}
 )
+
 file(GLOB ATTITUDE_APP_PLAIN_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/App/src/*.cpp"
 )
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${ATTITUDE_APP_PLAIN_SOURCES})
 
-add_subdirectory(cmake/stm32cubemx)
-include(cmake/emdevif_config.cmake)
-
-# Remove wrong libob.a library dependency when using cpp files
-list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
-
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/inc
 )
 
-target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
-    emdevif
-    emdevif_stm32_peripheral
-)
+target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 
 # ---- TFLM 推理路径（Phase 7）：模型生成后开启 ----
 # 1. model/tools/gen_c_array.py 生成 App/src/model_data.cc
@@ -64,17 +69,15 @@ if (ATTITUDE_ENABLE_TFLM)
     include(cmake/tflm.cmake)
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/App/inc/model_data.h
         AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/App/src/model_data.cc)
-        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-            FILE_SET attitude_modules TYPE CXX_MODULES FILES
-            ${CMAKE_CURRENT_SOURCE_DIR}/App/modules/tflite/attitude.tflite.cppm
-        )
-        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/App/src/model_data.cc
+        target_sources(${CMAKE_PROJECT_NAME}
+            PRIVATE FILE_SET attitude_modules TYPE CXX_MODULES FILES
+                ${CMAKE_CURRENT_SOURCE_DIR}/App/modules/tflite/attitude.tflite.cppm
+
+            PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/App/src/model_data.cc
+                ${CMAKE_CURRENT_SOURCE_DIR}/App/src/tflite/tflite_backend.cpp
         )
         target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ATTITUDE_ENABLE_TFLM)
-        target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/App/src/tflite/tflite_backend.cpp
-        )
         target_link_libraries(${CMAKE_PROJECT_NAME} tflm)
     else ()
         message(WARNING

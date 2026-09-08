@@ -5,6 +5,10 @@
 - 当用户明确写计划，或者智能体处于 Plan Mode 的时候，需要把对应的计划写入 `./.agents/plan/` 下
 - 当添加新功能的时候，需要编写设计文档在 `./.agents/docs/` 下，文档的命名需要以日期开头
 
+## CMake
+
+- 使用 `file(GLOG|GLOB_RECURSE ...)` 函数时，不要添加 `CONFIGURE_DEPENDS` 参数。每当有文件增加/减少时，手动重跑 cmake configure
+
 ## Git 提交规范
 
 由智能体产生的 git 提交的最后一行要标注 AI 辅助信息，格式为
