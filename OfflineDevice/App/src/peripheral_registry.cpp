@@ -8,6 +8,7 @@
 
 #include <cstddef>
 
+#include "main.h"
 #include "spi.h"
 #include "usart.h"
 
@@ -22,13 +23,13 @@ import emdevif.stm32_peripheral.hal.usart;
 
 // ---- SPI（BMI088 共用总线）----
 constinit emdevif::SpiModel::Instance spi_imu_instance{
-    .handle = &hspi1,
+    .handle = &hspi2,
     .transmit_receive_function = emdevif::stm32hal::spiTransmitReceiveBlock,
 };
 
-// ---- 片选 GPIO（占位 PB0/PB1，随用户引脚表更新）----
-constinit emdevif::stm32hal::GpioHandle cs_acc_handle{GPIOB, GPIO_PIN_0};
-constinit emdevif::stm32hal::GpioHandle cs_gyro_handle{GPIOB, GPIO_PIN_1};
+// ---- 片选 GPIO（BMI088_CSB_ACCEL: PC0 / BMI088_CSB_GYRO: PC3）----
+constinit emdevif::stm32hal::GpioHandle cs_acc_handle{BMI088_CSB_ACCEL_GPIO_Port, BMI088_CSB_ACCEL_Pin};
+constinit emdevif::stm32hal::GpioHandle cs_gyro_handle{BMI088_CSB_GYRO_GPIO_Port, BMI088_CSB_GYRO_Pin};
 
 constinit emdevif::GpioModel::Instance cs_acc_instance{
     .handle = &cs_acc_handle,
@@ -39,6 +40,24 @@ constinit emdevif::GpioModel::Instance cs_acc_instance{
 
 constinit emdevif::GpioModel::Instance cs_gyro_instance{
     .handle = &cs_gyro_handle,
+    .write_function = emdevif::stm32hal::gpioWrite,
+    .read_function = emdevif::stm32hal::gpioRead,
+    .toggle_function = emdevif::stm32hal::gpioToggle,
+};
+
+// ---- BMI088 数据就绪中断输入（EXTI，只读）----
+constinit emdevif::stm32hal::GpioHandle imu_int1_handle{BMI088_INT1_GPIO_Port, BMI088_INT1_Pin};
+constinit emdevif::stm32hal::GpioHandle imu_int3_handle{BMI088_INT3_GPIO_Port, BMI088_INT3_Pin};
+
+constinit emdevif::GpioModel::Instance imu_int1_instance{
+    .handle = &imu_int1_handle,
+    .write_function = emdevif::stm32hal::gpioWrite,
+    .read_function = emdevif::stm32hal::gpioRead,
+    .toggle_function = emdevif::stm32hal::gpioToggle,
+};
+
+constinit emdevif::GpioModel::Instance imu_int3_instance{
+    .handle = &imu_int3_handle,
     .write_function = emdevif::stm32hal::gpioWrite,
     .read_function = emdevif::stm32hal::gpioRead,
     .toggle_function = emdevif::stm32hal::gpioToggle,
@@ -58,7 +77,8 @@ void* findHandle(std::string_view name) noexcept
     if (name == "spi_imu") return &spi_imu_instance;
     if (name == "cs_acc") return &cs_acc_instance;
     if (name == "cs_gyro") return &cs_gyro_instance;
-    if (name == "debug_console") return &debug_console_instance;
+    if (name == "imu_int1") return &imu_int1_instance;
+    if (name == "imu_int3") return &imu_int3_instance;
     return nullptr;
 }
 
