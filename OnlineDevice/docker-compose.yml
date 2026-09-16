@@ -1,0 +1,12 @@
+services:
+  esp-idf:
+    image: espressif/idf:release-v6.1
+    container_name: esp-idf-builder
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /project
+    volumes:
+      - .:/project
+    environment:
+      - HOME=/tmp
+    tty: true
+    stdin_open: true
