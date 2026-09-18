@@ -4,6 +4,12 @@
 > Phase 2 以占位引脚（SPI1 PA5/6/7、USART1 PA9/10、CS=PB0/PB1）由用户在
 > CubeMX 手动生成；Phase 3/4 硬件门、Phase 5 数据门、Phase 6 指标门、
 > Phase 7/8 一致性与实测门待实机/数据。执行偏差见文末附录。
+>
+> 串口迁移（2026-09-17，用户 CubeMX 重生成）：调试台由 USART1(PA9/PA10) 改为
+> **USART10(PE2/PE3) 921600**；新增 **UART7(PE8/PE7) 921600** 专用于与 OnlineDevice
+> （ESP32 串口→WiFi 桥）通信。输出按类型分流：日志/控制行只走调试台，数据行（CSV/ACT）
+> 走调试台 + UART7。见 `.agents/plan/ESP32_WIFI_BRIDGE_PLAN.md` 与
+> `.agents/docs/2026-09-17-online-device-wifi-bridge.md`。
 
 ## Context
 
@@ -29,6 +35,7 @@
 - ✅ SPI1：mode 3（CPOL=1/CPHA=2EDGE）、8bit MSB、软 NSS、分频 /32（用户校正时钟树后 SCLK ≈5.7MHz，BMI088 10MHz 内）
 - ✅ 2× GPIO 推挽输出默认高（PB0/PB1）
 - ✅ USART1 异步 921600-8-N-1
+- 🔁 2026-09-17 迁移：USART1 → **USART10(PE2/PE3) 921600**（调试台），并新增 **UART7(PE8/PE7) 921600**（在线设备数据链，`bridge_uart` 注册名）；输出分流（日志→调试台，数据行→调试台 + UART7）
 - ⏳ EXTI INT1/INT3 未接（Phase 4 用定时轮询等价实现，接口不变）
 - ✅ KeepUserCode 生效：USER CODE 区、CS 引脚标签经再生成保留
 
@@ -37,7 +44,7 @@
 1. ✅ `App/modules/attitude.config.cppm`（全项目唯一参数源）
    - 执行修正：量程 ±24g（datasheet 无 ±16g，Assumption #7）
 2. ✅ `App/modules/attitude.bmi088.cppm`（emdevif SPI/GPIO；加速度计 dummy byte、双芯片 ID 校验、软复位延时）
-3. ✅ `App/src/peripheral_registry.cpp`（普通 TU；`constinit` Instance + `findHandle`；注册名 `"spi_imu"/"cs_acc"/"cs_gyro"/"debug_console"` 永不变）
+3. ✅ `App/src/peripheral_registry.cpp`（普通 TU；`constinit` Instance + `findHandle`；注册名 `"spi_imu"/"cs_acc"/"cs_gyro"/"imu_int1"/"imu_int3"/"debug_console"/"bridge_uart"` 永不变）
    - 执行修正：普通 TU 混用 `#include`+`import` 触发 GCC conflicting linkage → GMF 顶端 `#include <cstddef>` 解决（上游配合修复）
 4. ✅ `App/src/user_impl_timeline.cpp`（`HAL_GetTick()*1000` + SysTick 亚毫秒，含回绕竞态处理）
 5. ✅ `App/modules/attitude.app.cppm`（`extern "C" attitude_app_main`；init 失败 UART 报错；100Hz 固定周期；CSV 原始流受 `kStreamRaw` 控制）
@@ -99,7 +106,7 @@
 
 ## Assumptions & contingencies（执行结果）
 
-1. ✅ 引脚表未提供 → 占位（SPI1/USART1 默认引脚、PB0/PB1 CS），注册名契约不变
+1. ✅ 引脚表未提供 → 占位（SPI1/USART1 默认引脚、PB0/PB1 CS），注册名契约不变；后续用户按实物校正为 SPI2 + PC0/PC3 CS（2026-09-09）、USART10 + UART7（2026-09-17）
 2. ✅ 晶振信任 .ioc（HSE 24MHz→550MHz）；用户校正时钟树后 SPI 改分频 32
 3. ✅ 未发生 emdevif_stm32cubemx HAL 重复编译冲突
 4. ✅ tflite-micro glob 构建问题已按此条处理：排除平台目录/integration_tests；补 mlir 镜像源；CMSIS-NN 改 GLOB_RECURSE

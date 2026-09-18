@@ -21,7 +21,8 @@ main.c (CubeMX, C)
        │    ├─ MockInference      attitude.inference  阈值启发式（占位）
        │    └─ TfliteInference    attitude.tflite     → tflite_backend.cpp (C 接口)
        │                                                 └─ TFLM + CMSIS-NN (deps/)
-       └─ Serial/Timeline emdevif           "debug_console" USART1 921600
+       └─ Serial/Timeline emdevif           "debug_console" USART10(PE2/PE3) 921600 → PC 调试台（日志 + 数据）
+                                            "bridge_uart"   UART7(PE8/PE7) 921600 → OnlineDevice（仅数据行）
                                 emdevif::user_impl 注入（registry/timeline .cpp）
 ```
 

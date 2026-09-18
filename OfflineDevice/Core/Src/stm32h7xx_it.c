@@ -56,7 +56,8 @@
 
 /* External variables --------------------------------------------------------*/
 extern SPI_HandleTypeDef hspi2;
-extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart7;
+extern UART_HandleTypeDef huart10;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -214,17 +215,31 @@ void SPI2_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles USART1 global interrupt.
+  * @brief This function handles UART7 global interrupt.
   */
-void USART1_IRQHandler(void)
+void UART7_IRQHandler(void)
 {
-  /* USER CODE BEGIN USART1_IRQn 0 */
+  /* USER CODE BEGIN UART7_IRQn 0 */
 
-  /* USER CODE END USART1_IRQn 0 */
-  HAL_UART_IRQHandler(&huart1);
-  /* USER CODE BEGIN USART1_IRQn 1 */
+  /* USER CODE END UART7_IRQn 0 */
+  HAL_UART_IRQHandler(&huart7);
+  /* USER CODE BEGIN UART7_IRQn 1 */
 
-  /* USER CODE END USART1_IRQn 1 */
+  /* USER CODE END UART7_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART10 global interrupt.
+  */
+void USART10_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART10_IRQn 0 */
+
+  /* USER CODE END USART10_IRQn 0 */
+  HAL_UART_IRQHandler(&huart10);
+  /* USER CODE BEGIN USART10_IRQn 1 */
+
+  /* USER CODE END USART10_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

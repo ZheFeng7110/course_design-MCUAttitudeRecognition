@@ -101,7 +101,8 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART1_UART_Init();
+  MX_USART10_UART_Init();
+  MX_UART7_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
 

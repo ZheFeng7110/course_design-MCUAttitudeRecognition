@@ -3,7 +3,8 @@
 //! 报 conflicting linkage，故注入 TU 改为模块单元；findHandle 定义保持
 //! 未导出、外部链接，链接器照常解析）。
 //! 注册名契约（Phase 2 占位决策，永不更改）：
-//!   "spi_imu" / "cs_acc" / "cs_gyro" / "debug_console"
+//!   "spi_imu" / "cs_acc" / "cs_gyro" / "imu_int1" / "imu_int3" /
+//!   "debug_console" / "bridge_uart"
 //! 引脚变更只改本文件绑定。
 
 #include <cstddef>
@@ -63,9 +64,16 @@ constinit emdevif::GpioModel::Instance imu_int3_instance{
     .toggle_function = emdevif::stm32hal::gpioToggle,
 };
 
-// ---- 调试/数据串口（USART1）----
+// ---- 调试串口（USART10，PE2/PE3，921600）：接 PC 的 USB-TTL ----
 constinit emdevif::SerialModel::Instance debug_console_instance{
-    .handle = &huart1,
+    .handle = &huart10,
+    .get_state_function = emdevif::stm32hal::uartGetState,
+    .transmit_function = emdevif::stm32hal::uartTransmitBlocking,
+};
+
+// ---- 在线设备数据链（UART7，PE8=TX/PE7=RX，115200）：接 ESP32 UART2 RX(GPIO16) ----
+constinit emdevif::SerialModel::Instance bridge_uart_instance{
+    .handle = &huart7,
     .get_state_function = emdevif::stm32hal::uartGetState,
     .transmit_function = emdevif::stm32hal::uartTransmitBlocking,
 };
@@ -79,6 +87,8 @@ void* findHandle(std::string_view name) noexcept
     if (name == "cs_gyro") return &cs_gyro_instance;
     if (name == "imu_int1") return &imu_int1_instance;
     if (name == "imu_int3") return &imu_int3_instance;
+    if (name == "debug_console") return &debug_console_instance;
+    if (name == "bridge_uart") return &bridge_uart_instance;
     return nullptr;
 }
 

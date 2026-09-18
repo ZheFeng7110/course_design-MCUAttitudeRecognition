@@ -1,4 +1,9 @@
-//! 姿态应用主入口：BMI088 100Hz 采样 → 窗口缓冲 → 推理 → UART 输出
+//! 姿态应用主入口：BMI088 100Hz 采样 → 窗口缓冲 → 推理 → 双串口分流输出
+//! 串口分流（两个口均 921600）：
+//!   - "debug_console" = USART10(PE2/PE3)：调试台，输出全部行（日志 + 数据）
+//!   - "bridge_uart"   = UART7(PE8/PE7)：在线设备（ESP32）数据链，**只**输出数据行
+//!     即 CSV `t_us,ax,ay,az,gx,gy,gz` 或判断行 `ACT,WALK|RUN|FALL,p0,p1,p2,<ms>ms`；
+//!     日志/控制/错误行（`BMI088 init OK`、`TFLM arena used:` 等）不进入该口。
 //! 模式由 attitude.config 的开关控制：
 //!   - kStreamRaw == true ：CSV 原始流 `t_us,ax,ay,az,gx,gy,gz`（Phase 5 采集模式）
 //!   - 否则输出推理结果  `ACT,WALK|RUN|FALL,p0,p1,p2,<耗时>ms`
@@ -93,27 +98,35 @@ void handleParityCommand(Serial& debug, Inf& inference) noexcept
 
 export extern "C" void attitude_app_main()
 {
-    Serial debug("debug_console");
-    const auto send = [&debug](const char* text) noexcept {
-        (void)debug.transmit(false,
-                             std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(text),
-                                                      std::strlen(text)),
-                             Serial::max_delay);
+    Serial debug("debug_console");  // USART10(PE2/PE3) 921600：调试台（日志 + 数据）
+    Serial bridge("bridge_uart");   // UART7(PE8/PE7) 921600：在线设备数据链（仅数据行）
+    const auto write = [](Serial& port, const char* text) noexcept {
+        (void)port.transmit(false,
+                            std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(text),
+                                                     std::strlen(text)),
+                            Serial::max_delay);
+    };
+    // 分流：日志/控制/错误行只走调试台；数据行额外转发到在线设备链路。
+    // 调试台保留数据行，供 PC 的 USB-TTL 直接抓取（model/tools 的采集与现场测试依赖该口）。
+    const auto sendLog = [&](const char* text) noexcept { write(debug, text); };
+    const auto sendData = [&](const char* text) noexcept {
+        write(debug, text);
+        write(bridge, text);
     };
 
     BMI088 imu({.spi = "spi_imu", .cs_acc = "cs_acc", .cs_gyro = "cs_gyro"});
     if (!imu.init()) {
         // 无 LED 引脚（gpio.c 占位）：UART 报错后停机循环占位
-        send("BMI088 init FAILED\r\n");
+        sendLog("BMI088 init FAILED\r\n");
         for (;;) {
             Timeline::pauseDelayMs(100);
         }
     }
-    send("BMI088 init OK\r\n");
+    sendLog("BMI088 init OK\r\n");
 
     InferenceImpl inference;
-    if (!initInference(inference, send)) {
-        send("TFLM init FAILED\r\n");
+    if (!initInference(inference, sendLog)) {
+        sendLog("TFLM init FAILED\r\n");
         for (;;) {
             Timeline::pauseDelayMs(100);
         }
@@ -137,7 +150,7 @@ export extern "C" void attitude_app_main()
                                     static_cast<unsigned long long>(t_us), frame.accel[0],
                                     frame.accel[1], frame.accel[2], frame.gyro[0], frame.gyro[1],
                                     frame.gyro[2]);
-                send(line);
+                sendData(line);
             }
             window.push(frame);
         }
@@ -154,7 +167,7 @@ export extern "C" void attitude_app_main()
                     (void)std::snprintf(line, sizeof(line), "ACT,%s,%.3f,%.3f,%.3f,%.1fms\r\n",
                                         kNames[static_cast<int>(act)], probs[0], probs[1], probs[2],
                                         static_cast<double>(infer_ms));
-                    send(line);
+                    sendData(line);
                 }
             }
         }
