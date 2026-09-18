@@ -1,0 +1,20 @@
+menu "Online device bridge"
+    config BRIDGE_AP_SSID
+        string "SoftAP SSID"
+        default "attitude-bridge"
+    config BRIDGE_AP_PASSWORD
+        string "SoftAP password (8-63 chars; shorter => open AP)"
+        default "attitude123"
+    config BRIDGE_AP_CHANNEL
+        int "SoftAP channel"
+        range 1 13
+        default 1
+    config BRIDGE_AP_MAX_STA
+        int "Max stations on SoftAP"
+        range 1 4
+        default 1
+    config BRIDGE_TCP_PORT
+        int "TCP server port"
+        range 1024 65535
+        default 3333
+endmenu

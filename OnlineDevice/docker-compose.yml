@@ -6,6 +6,9 @@ services:
     working_dir: /project
     volumes:
       - .:/project
+      - /dev:/dev          # 直通宿主机串口节点（ttyUSB0/ttyACM0 枚举变化都不用改本文件）
+    group_add:
+      - dialout            # 镜像内 dialout=gid 20，容器默认无附加组
     environment:
       - HOME=/tmp
     tty: true
