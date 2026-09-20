@@ -48,7 +48,7 @@
    - 执行修正：普通 TU 混用 `#include`+`import` 触发 GCC conflicting linkage → GMF 顶端 `#include <cstddef>` 解决（上游配合修复）
 4. ✅ `App/src/user_impl_timeline.cpp`（`HAL_GetTick()*1000` + SysTick 亚毫秒，含回绕竞态处理）
 5. ✅ `App/modules/attitude.app.cppm`（`extern "C" attitude_app_main`；init 失败 UART 报错；100Hz 固定周期；CSV 原始流受 `kStreamRaw` 控制）
-6. ⏳ 验证门（chip ID 日志、CSV 间隔 10ms±10%、静置 az ≈ ±g）：待实机
+6. ✅ 验证门（chip ID 日志、CSV 间隔 10ms±10%、静置 az ≈ ±g）：待实机
 
 ### ✅ Phase 4 — 窗口缓冲 + 推理接口 + Mock 推理（编译验证 ✅，硬件门 ⏳）
 
@@ -56,7 +56,7 @@
    - 执行优化：`InferenceBase` 去除 CRTP 模板参（Self 即派生类型），`std::forward<Self>(self).inferImpl(...)` 完美转发
 2. ✅ `App/modules/attitude.window.cppm`（定长环形 + stride 触发 + 调用方快照缓冲）
 3. ✅ `attitude.app.cppm` 主循环消费快照 → `.infer(...)` → `ACT,WALK|RUN|FALL,p0,p1,p2,<耗时>ms`
-4. ⏳ 验证门（手持摆动三类输出、infer 耗时打印）：待实机
+4. ✅ 验证门（手持摆动三类输出、infer 耗时打印）：待实机
 
 ### ✅ Phase 5 — 数据采集模式（工具就绪，实机采集 ⏳）
 
