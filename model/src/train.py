@@ -63,6 +63,15 @@ def main() -> None:
     x_test = np.load(DATA / "test.npy")
     y_test = np.load(DATA / "test_labels.npy")
 
+    # 模型输入 = x_norm = (x_lsb - mean) / std（norm.json 为训练集统计）。
+    # 端侧与 tools/parity_check.py 都是先归一化再量化，训练侧必须一致，否则导出后精度无效。
+    norm = json.loads((DATA / "norm.json").read_text(encoding="utf-8"))
+    mean = np.array(norm["mean"], np.float32)
+    std = np.array(norm["std"], np.float32)
+    x_train = (x_train - mean) / std
+    x_val = (x_val - mean) / std
+    x_test = (x_test - mean) / std
+
     model = build_model()
 
     # ---- 阶段 1: 公开数据集（+自采集，同一路径已在训练集里合并）----
@@ -85,7 +94,7 @@ def main() -> None:
         "test": evaluate(model, x_test, y_test),
     }
     print(json.dumps(report, indent=2))
-    (ART / "train_report.json").write_text(json.dumps(report, indent=2))
+    (ART / "train_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     model.save(ART / "attitude_model.keras")
     print(f"模型 -> {ART / 'attitude_model.keras'}")

@@ -141,17 +141,24 @@ def load_sisfall(root: Path) -> list[tuple[np.ndarray, int]]:
 
 
 def load_self(root: Path) -> list[tuple[np.ndarray, int]]:
-    """自采集 CSV：已是 100Hz、±24g LSB / ±2000dps LSB，直接转 g/dps 后切窗。"""
+    """自采集 CSV：已是 100Hz、±24g LSB / ±2000dps LSB，直接转 g/dps 后切窗。
+
+    一个会话可含多段不同活动（label 逐行标注），按连续同标签区段分别切分，
+    不能整段会话取首行标签。
+    """
     out = []
     for f in sorted(root.glob("session_*.csv")):
+        if f.stat().st_size == 0:   # 录制刚创建/中断留下的空文件
+            continue
         df = pd.read_csv(f)
         df = df[df["label"].isin(CLASS_MAP)]
         if df.empty:
             continue
-        acc = df[["ax", "ay", "az"]].to_numpy(float) / 1365.0
-        gyr = df[["gx", "gy", "gz"]].to_numpy(float) / 16.384
-        series = np.concatenate([acc, gyr], axis=1).astype(np.float32)
-        out.append((series, CLASS_MAP[df.iloc[0]["label"]]))
+        for _, seg in df.groupby((df["label"] != df["label"].shift()).cumsum(), sort=False):
+            acc = seg[["ax", "ay", "az"]].to_numpy(float) / 1365.0
+            gyr = seg[["gx", "gy", "gz"]].to_numpy(float) / 16.384
+            series = np.concatenate([acc, gyr], axis=1).astype(np.float32)
+            out.append((series, CLASS_MAP[seg.iloc[0]["label"]]))
     return out
 
 
@@ -196,7 +203,7 @@ def main() -> None:
     (OUT / "norm.json").write_text(json.dumps({
         "mean": mean.tolist(), "std": std.tolist(),
         "note": "x_norm = (x_lsb - mean) / std；端侧量化: int8 = round(x_norm / input_scale + zero_point)",
-    }, indent=2))
+    }, indent=2), encoding="utf-8")
     print(f"输出 -> {OUT}")
 
 

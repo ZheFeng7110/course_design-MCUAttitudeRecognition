@@ -27,7 +27,7 @@ def main() -> None:
     model = tf.keras.models.load_model(ART / "attitude_model.keras")
 
     # 归一化（与 preprocess 一致，训练侧推断时同样处理）
-    norm = json.loads((DATA / "norm.json").read_text())
+    norm = json.loads((DATA / "norm.json").read_text(encoding="utf-8"))
     mean = np.array(norm["mean"], np.float32)
     std = np.array(norm["std"], np.float32)
     normed = lambda x: (x - mean) / std  # noqa: E731
@@ -87,7 +87,7 @@ def main() -> None:
                    "zero_point": int(out_d["quantization"][1])},
         "note": "端侧: x_norm=(x_lsb-mean)/std; int8=round(x_norm/scale)+zero_point",
     }
-    (ART / "model_meta.json").write_text(json.dumps(meta, indent=2))
+    (ART / "model_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"元数据 -> {ART / 'model_meta.json'}")
 
 

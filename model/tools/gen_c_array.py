@@ -54,12 +54,12 @@ def c_float_list(values: list[float]) -> str:
 def main() -> None:
     if not TFLITE.exists():
         sys.exit(f"缺少 {TFLITE}，先运行 export_tflite.py")
-    meta = json.loads(META.read_text())
+    meta = json.loads(META.read_text(encoding="utf-8"))
     data = TFLITE.read_bytes()
 
     OUT_H.parent.mkdir(parents=True, exist_ok=True)
     OUT_CC.parent.mkdir(parents=True, exist_ok=True)
-    OUT_H.write_text(HEADER)
+    OUT_H.write_text(HEADER, encoding="utf-8")
 
     lines = [
         "// 生成文件：由 model/tools/gen_c_array.py 产生，请勿手改",
@@ -78,7 +78,7 @@ def main() -> None:
     lines.append(f"const float kAttitudeNormStd[6] = {c_float_list(inp['normalization']['std'])};")
     lines.append(f"const float kAttitudeInputScale = {inp['scale']:.9g}f;")
     lines.append(f"const int32_t kAttitudeInputZeroPoint = {inp['zero_point']};")
-    OUT_CC.write_text("\n".join(lines) + "\n")
+    OUT_CC.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"写入 {OUT_CC}（模型 {len(data)} 字节 + 元数据）与 {OUT_H}")
     print("下一步: cmake -DATTITUDE_ENABLE_TFLM=ON 重新配置，并把 kUseMockInference 置 false")
 

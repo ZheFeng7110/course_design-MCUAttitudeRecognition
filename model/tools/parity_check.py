@@ -6,7 +6,8 @@
     MCU 侧临时命令 'W'：随后 200 帧×12 字节 int16 原始 LSB → 返回 3×float 概率）
   - 比对 argmax 一致率（要求 100%）与概率偏差（要求 < 0.01）
 
-用法: uv run parity_check.py <COM口> [窗口数=50]
+用法: uv run parity_check.py [串口] [窗口数=50]
+    串口缺省：Windows COM5 / Linux /dev/ttyUSB0（同 record.py）
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from console_input import PORT_DEFAULT
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 try:
@@ -30,7 +32,7 @@ except ImportError:
     sys.exit("缺少 tensorflow（在 model/ 目录用 uv run 执行）")
 
 ART = ROOT / "model" / "artifacts"
-META = json.loads((ART / "model_meta.json").read_text())
+META = json.loads((ART / "model_meta.json").read_text(encoding="utf-8"))
 NORM = META["input"]["normalization"]
 
 
@@ -39,7 +41,7 @@ def windows_from_sessions(min_windows: int) -> list[np.ndarray]:
     self_dir = ROOT / "model" / "data" / "self"
     wins = []
     for f in sorted(self_dir.glob("session_*.csv")):
-        df = np.loadtxt(f, delimiter=",", skiprows=1, usecols=range(1, 7), dtype=np.int16)
+        df = np.loadtxt(f, delimiter=",", skiprows=1, usecols=range(2, 8), dtype=np.int16)
         for i in range(0, len(df) - 200 + 1, 200):
             wins.append(df[i:i + 200].astype(np.float32))
             if len(wins) >= min_windows:
@@ -63,7 +65,7 @@ def pc_reference(interp: tf.lite.Interpreter, win_lsb: np.ndarray) -> tuple[np.n
 
 
 def main() -> None:
-    port = sys.argv[1] if len(sys.argv) > 1 else "COM5"
+    port = sys.argv[1] if len(sys.argv) > 1 else PORT_DEFAULT
     n_windows = int(sys.argv[2]) if len(sys.argv) > 2 else 50
 
     wins = windows_from_sessions(n_windows)
