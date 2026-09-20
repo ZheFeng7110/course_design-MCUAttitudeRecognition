@@ -68,6 +68,7 @@ constinit emdevif::GpioModel::Instance imu_int3_instance{
 constinit emdevif::SerialModel::Instance debug_console_instance{
     .handle = &huart10,
     .get_state_function = emdevif::stm32hal::uartGetState,
+    .receive_function = emdevif::stm32hal::uartReceiveBlocking,
     .transmit_function = emdevif::stm32hal::uartTransmitBlocking,
 };
 
