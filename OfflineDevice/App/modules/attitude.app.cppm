@@ -102,7 +102,7 @@ export extern "C" void attitude_app_main()
 {
     Serial debug("debug_console");  // USART10(PE2/PE3) 921600：调试台（日志 + 数据）
     Serial bridge("bridge_uart");   // UART7(PE8/PE7) 921600：在线设备数据链（仅数据行）
-    const auto write = [](Serial& port, const char* text) noexcept {
+    const auto write = [](const Serial& port, const char* text) noexcept {
         (void)port.transmit(false,
                             std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(text),
                                                      std::strlen(text)),
@@ -133,6 +133,7 @@ export extern "C" void attitude_app_main()
             Timeline::pauseDelayMs(100);
         }
     }
+    sendLog("TFLM init OK\r\n");
 
     WindowBuffer window;
     ImuFrame frame{};
