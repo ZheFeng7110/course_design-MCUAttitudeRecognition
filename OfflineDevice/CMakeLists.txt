@@ -49,13 +49,34 @@ include(cmake/emdevif_config.cmake)
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/get_cpm.cmake)
+CPMAddPackage(
+    NAME printf
+    GITHUB_REPOSITORY mpaland/printf
+    GIT_TAG v4.0.0
+    VERSION 4.0.0
+    DOWNLOAD_ONLY
+)
+if (printf_ADDED)
+    add_library(printf STATIC)
+    target_sources(printf
+        PRIVATE ${printf_SOURCE_DIR}/printf.c
+
+        PUBLIC FILE_SET header TYPE HEADERS BASE_DIRS ${printf_SOURCE_DIR}
+            FILES ${printf_SOURCE_DIR}/printf.h
+    )
+else ()
+    message(FATAL_ERROR "[${PROJECT_NAME}]: CPM: Failed to add package `printf`")
+endif ()
+
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
     emdevif
     emdevif_stm32_peripheral
+    printf
 )
 
-# 应用代码：C++23 模块单元（.cppm）+ 链接期注入普通 TU（.cpp）
+# 应用代码：C++23 模块单元（.cppm）
 file(GLOB ATTITUDE_APP_MODULES
     "${CMAKE_CURRENT_SOURCE_DIR}/App/modules/*.cppm"
 )
@@ -63,6 +84,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     FILE_SET attitude_modules TYPE CXX_MODULES FILES ${ATTITUDE_APP_MODULES}
 )
 
+# 应用代码：链接期注入普通 TU（.cpp）
 file(GLOB ATTITUDE_APP_PLAIN_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/App/src/*.cpp"
 )

@@ -20,6 +20,8 @@ module;
 #include <span>
 #include <type_traits>
 
+#include "printf.h"
+
 export module attitude.app;
 
 import attitude.config;
@@ -55,8 +57,8 @@ bool initInference(Inf& inference, const auto& send) noexcept
     if constexpr (requires { inference.init(); }) {
         if (!inference.init()) return false;
         char arena_line[64]{};
-        (void)std::snprintf(arena_line, sizeof(arena_line), "TFLM arena used: %zu bytes\r\n",
-                            inference.arenaUsedBytes());
+        (void)snprintf(arena_line, sizeof(arena_line), "TFLM arena used: %zu bytes\r\n",
+                       inference.arenaUsedBytes());
         send(arena_line);
     }
     return true;
@@ -146,10 +148,10 @@ export extern "C" void attitude_app_main()
         if (imu.read(frame)) {
             const uint64_t t_us = Timeline::getMicroseconds() - start_us;
             if (kStreamRaw) {
-                (void)std::snprintf(line, sizeof(line), "%llu,%d,%d,%d,%d,%d,%d\r\n",
-                                    static_cast<unsigned long long>(t_us), frame.accel[0],
-                                    frame.accel[1], frame.accel[2], frame.gyro[0], frame.gyro[1],
-                                    frame.gyro[2]);
+                (void)snprintf(line, sizeof(line), "%llu,%d,%d,%d,%d,%d,%d\r\n",
+                               static_cast<unsigned long long>(t_us), frame.accel[0],
+                               frame.accel[1], frame.accel[2], frame.gyro[0], frame.gyro[1],
+                               frame.gyro[2]);
                 sendData(line);
             }
             window.push(frame);
@@ -158,15 +160,15 @@ export extern "C" void attitude_app_main()
         if (window.ready()) {
             window.takeSnapshot(snapshot);
             infer_timer.update();
-            Activity act = Activity::Walk;
+            auto act = Activity::Walk;
             float probs[3] = {0.0F, 0.0F, 0.0F};
             if (inference.infer(snapshot, kWindowLen, act, probs)) {
                 const float infer_ms = infer_timer.getMilliDuration();
-                if (!kStreamRaw) {
+                if constexpr (!kStreamRaw) {
                     static constexpr const char* kNames[] = {"WALK", "RUN", "FALL"};
-                    (void)std::snprintf(line, sizeof(line), "ACT,%s,%.3f,%.3f,%.3f,%.1fms\r\n",
-                                        kNames[static_cast<int>(act)], probs[0], probs[1], probs[2],
-                                        static_cast<double>(infer_ms));
+                    (void)snprintf(line, sizeof(line), "ACT,%s,%.3f,%.3f,%.3f,%.1fms\r\n",
+                                   kNames[static_cast<int>(act)], probs[0], probs[1], probs[2],
+                                   static_cast<double>(infer_ms));
                     sendData(line);
                 }
             }
