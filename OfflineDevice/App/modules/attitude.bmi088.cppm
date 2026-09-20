@@ -59,21 +59,26 @@ private:
     // ---- BMI088 寄存器地址 ----
     static constexpr uint8_t kRegAccChipId     = 0x00;  // 复位值 0x1E
     static constexpr uint8_t kRegAccData       = 0x12;  // ACC_DATA 起 6 字节自动递增
-    static constexpr uint8_t kRegAccConf       = 0x40;  // acc_bwp[6:4] | acc_odr[3:0]
+    static constexpr uint8_t kRegAccConf       = 0x40;  // acc_bwp[7:4] | acc_odr[3:0]
     static constexpr uint8_t kRegAccRange      = 0x41;  // 0x03 = ±24g
     static constexpr uint8_t kRegAccPwrConf    = 0x7C;  // 0x00 = active
-    static constexpr uint8_t kRegAccPwrCtrl    = 0x7D;  // 0x01 = 使能加速度计
+    static constexpr uint8_t kRegAccPwrCtrl    = 0x7D;  // 0x04 = 使能加速度计（0x00 = off）
     static constexpr uint8_t kRegAccSoftReset  = 0x7E;  // 写 0xB6
     static constexpr uint8_t kRegGyrChipId     = 0x00;  // 复位值 0x0F
     static constexpr uint8_t kRegGyrRange      = 0x0F;  // 0x00 = ±2000dps
     static constexpr uint8_t kRegGyrBandwidth  = 0x10;  // 0x07 = ODR 100Hz / 滤波 32Hz
     static constexpr uint8_t kRegGyrLpm1       = 0x11;  // 0x00 = normal 模式
     static constexpr uint8_t kRegGyrSoftReset  = 0x14;  // 写 0xB6
-    static constexpr uint8_t kRegGyrData       = 0x12;  // RATE_X_LSB 起 6 字节自动递增
+    static constexpr uint8_t kRegGyrData       = 0x02;  // RATE_X_LSB 起 6 字节自动递增
 
     static constexpr uint8_t kAccChipIdValue = 0x1E;
     static constexpr uint8_t kGyrChipIdValue = 0x0F;
     static constexpr uint8_t kSoftResetValue = 0xB6;
+    // ACC_PWR_CTRL：0x04 = 使能（datasheet 5.3.21，写 0x00 则保持关闭 → 数据恒为 0）
+    static constexpr uint8_t kAccPwrCtrlOn   = 0x04;
+    // ACC_CONF：acc_bwp[7:4] = 0x0A（normal OSR）| acc_odr[3:0] = 0x08（100Hz）
+    // datasheet 5.3.10：acc_bwp 合法值仅 0x08/0x09/0x0A，acc_odr 合法值仅 0x05–0x0C
+    static constexpr uint8_t kAccConf100Hz   = 0xA8;
     static constexpr uint8_t kReadBit        = 0x80;
     static constexpr uint32_t kSpiTimeoutMs  = 5;
 
@@ -87,13 +92,21 @@ private:
         if (!writeReg(true, kRegAccSoftReset, kSoftResetValue)) return false;
         Timeline::pauseDelayMs(2);   // 软复位 ≥1ms
 
-        if (!writeReg(true, kRegAccPwrConf, 0x00)) return false;  // suspend → active
-        Timeline::pauseDelayUs(500);  // 上电稳定 450us
-        if (!writeReg(true, kRegAccPwrCtrl, 0x01)) return false;  // 使能加速度计
+        // 加速度计软复位后 SPI 接口需重新使能：复位后的第一个 SPI 事务只用于
+        // 拉高 CSB 完成切换，其数据被丢弃（实测：紧随复位的配置写被静默吞掉，
+        // ACC_PWR_CTRL 仍读回 0x00、数据恒为 0）。故按 datasheet §3 补一次哑读
+        // 作牺牲事务，之后的配置写才生效（与 Linux bmi088-accel 驱动一致）。
+        (void)readReg(true, kRegAccChipId, id);
+
+        // datasheet §3：软复位后必须写 0x04 到 ACC_PWR_CTRL 才能使能取数，
+        // 再写 ACC_PWR_CONF = 0x00 解除 suspend（复位值 0x03 = suspend）。
+        if (!writeReg(true, kRegAccPwrCtrl, kAccPwrCtrlOn)) return false;  // 使能加速度计
         Timeline::pauseDelayMs(5);
+        if (!writeReg(true, kRegAccPwrConf, 0x00)) return false;  // suspend → active
+        Timeline::pauseDelayMs(1);
 
         if (!writeReg(true, kRegAccRange, 0x03)) return false;    // ±24g
-        if (!writeReg(true, kRegAccConf, 0x23)) return false;     // ODR 100Hz / normal 带宽
+        if (!writeReg(true, kRegAccConf, kAccConf100Hz)) return false;  // 100Hz / normal
 
         for (int i = 0; i < 5; ++i) {
             if (readReg(true, kRegAccChipId, id) && id == kAccChipIdValue) return true;
