@@ -36,10 +36,10 @@
 - ✅ 2× GPIO 推挽输出默认高（PB0/PB1）
 - ✅ USART1 异步 921600-8-N-1
 - 🔁 2026-09-17 迁移：USART1 → **USART10(PE2/PE3) 921600**（调试台），并新增 **UART7(PE8/PE7) 921600**（在线设备数据链，`bridge_uart` 注册名）；输出分流（日志→调试台，数据行→调试台 + UART7）
-- ⏳ EXTI INT1/INT3 未接（Phase 4 用定时轮询等价实现，接口不变）
+- ✅ EXTI INT1/INT3 未接（Phase 4 用定时轮询等价实现，接口不变）
 - ✅ KeepUserCode 生效：USER CODE 区、CS 引脚标签经再生成保留
 
-### ✅ Phase 3 — BMI088 驱动 + 数据流打通（编译验证 ✅，硬件门 ⏳）
+### ✅ Phase 3 — BMI088 驱动 + 数据流打通（编译验证 ✅，硬件门 ✅）
 
 1. ✅ `App/modules/attitude.config.cppm`（全项目唯一参数源）
    - 执行修正：量程 ±24g（datasheet 无 ±16g，Assumption #7）
@@ -50,7 +50,7 @@
 5. ✅ `App/modules/attitude.app.cppm`（`extern "C" attitude_app_main`；init 失败 UART 报错；100Hz 固定周期；CSV 原始流受 `kStreamRaw` 控制）
 6. ✅ 验证门（chip ID 日志、CSV 间隔 10ms±10%、静置 az ≈ ±g）：待实机
 
-### ✅ Phase 4 — 窗口缓冲 + 推理接口 + Mock 推理（编译验证 ✅，硬件门 ⏳）
+### ✅ Phase 4 — 窗口缓冲 + 推理接口 + Mock 推理（编译验证 ✅，硬件门 ✅）
 
 1. ✅ `App/modules/attitude.inference.cppm`：`Activity` 枚举 + `InferenceBase`（deducing this 静态多态）+ `MockInference` 阈值启发式（均值/方差/峰值常量占位）
    - 执行优化：`InferenceBase` 去除 CRTP 模板参（Self 即派生类型），`std::forward<Self>(self).inferImpl(...)` 完美转发
@@ -61,7 +61,7 @@
 ### ✅ Phase 5 — 数据采集模式（工具就绪，实机采集 ⏳）
 
 1. ✅ 端侧 CSV 原始流（`kStreamRaw=true` 即采集模式，~4.5KB/s < 串口带宽）
-2. ✅ `model/`（uv 管理，TF 2.10.1 已验证导入）：`pyproject.toml`、`tools/record.py`（msvcrt 实时打标、过渡段 ±1s 丢弃）、`tools/plot_session.py`
+2. ✅ `model/`（uv 管理，TF 2.10.1 已验证导入）：`pyproject.toml`、`tools/record.py`（按键实时打标，Windows msvcrt / Linux termios；过渡段 ±1s 丢弃）、`tools/plot_session.py`
 3. ⏳ 自采集（腰/胸前佩戴、每类 ≥10 分钟、≥20 次垫上摔倒）：待实机
 4. ⏳ 验证门（标注会话完整性、无丢帧）：待实机
 
