@@ -12,3 +12,5 @@ generated/
 **/__pycache__/
 **/compile_commands.json
 model/.venv/
+
+model/data/
