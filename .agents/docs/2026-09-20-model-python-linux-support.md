@@ -121,9 +121,3 @@ PC 侧 `parity_check.py` 复刻同一步。这样模型工件与传感器量程�
   并非同一单位（相差约 9.8 倍与 57.3 倍），归一化统计量（`norm.json`）也会被公开集主导而失真。
 - **未核实**：本次 `model/data/external/` 为空（数据集未下载），无法用数据验证 MobiAct 的实际量纲。
   需要用户确认后决定是否补换算（`acc /= 9.80665`、`gyr *= 180/π`）。
-
-## 9. 清理
-
-验证用的合成会话、`data/processed`、`artifacts/`（合成数据训出的模型）、`data/field` 报告、
-会话 PNG、以及临时生成到仓库路径的 `OfflineDevice/App/{src,inc}/model_data.{cc,h}`
-（合成数据产物，避免误烧进固件）均已删除；固件 CMake 缓存恢复为 `ATTITUDE_ENABLE_TFLM=OFF`。
