@@ -2,6 +2,7 @@
 // 所有 TFLM/flatbuffers C++ 头限制在本文件（见 attitude_tflite_backend.h 注释）。
 
 #include "attitude_tflite_backend.h"
+#include "attitude_quantize.h"
 
 #include "model_data.h"
 
@@ -100,26 +101,9 @@ int attitude_tflite_infer(const attitude_imu_frame* window, int len, float probs
         return 0;
     }
 
-    // 窗口原始 LSB → 归一化（model_data 元数据）→ int8 量化
+    // 窗口原始 LSB → 物理量 → 归一化 → int8（见 attitude_quantize.h）
     static int8_t quantized[kWindowLen * 6];
-    for (int i = 0; i < kWindowLen; ++i) {
-        const float chans[6] = {
-            static_cast<float>(window[i].accel[0]),
-            static_cast<float>(window[i].accel[1]),
-            static_cast<float>(window[i].accel[2]),
-            static_cast<float>(window[i].gyro[0]),
-            static_cast<float>(window[i].gyro[1]),
-            static_cast<float>(window[i].gyro[2]),
-        };
-        for (int c = 0; c < 6; ++c) {
-            const float x = (chans[c] - kAttitudeNormMean[c]) / kAttitudeNormStd[c];
-            float q = std::nearbyint(x / kAttitudeInputScale)
-                      + static_cast<float>(kAttitudeInputZeroPoint);
-            if (q > 127.0F) q = 127.0F;
-            if (q < -128.0F) q = -128.0F;
-            quantized[i * 6 + c] = static_cast<int8_t>(q);
-        }
-    }
+    attitude_quantize_window(window, len, quantized);
     std::memcpy(g_input->data.int8, quantized, sizeof(quantized));
 
     if (g_interpreter->Invoke() != kTfLiteOk) {

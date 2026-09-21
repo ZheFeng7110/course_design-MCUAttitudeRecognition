@@ -73,22 +73,57 @@ Linux（验证/生成）之间来回传。全部 `read_text/write_text` 显式 `
 
 `ruff check` 全部 model 文件与改动前基线一致（仅剩既有的 `RUF100`/`DTZ005`）。
 
-## 7. 未决项（需用户决策，本次未改）
+## 7. 端侧归一化单位不匹配 —— 已按「方案 A」修复
 
-**端侧归一化单位不匹配**（`parity_check.py` 的 PC 参考与固件行为一致，因此门形同虚设）：
+**问题回顾**：`tflite_backend.cpp` 用 `kAttitudeNormMean/Std` 直接归一化**原始 int16 LSB**，
+而这两个常量来自 `norm.json`（= `preprocess` 统计量，单位 **g/dps**）。后果是加速度通道整体饱和：
+本次在真实生成的 `model_data.cc` 上实测，旧口径 int8 输入饱和 **50%（walk 窗口）/ 81%（run 窗口）/
+43%（fall 窗口）**，端侧恒判 run 而 `parity_check` 仍报 100% 一致、偏差 0 —— 一致性门形同虚设。
 
-- `tflite_backend.cpp:115` 用 `kAttitudeNormMean/Std` 直接归一化**原始 int16 LSB**；
-- 而这两个常量来自 `model_meta.json` ← `norm.json` = `preprocess` 统计量，单位是 **g/dps**
-  （实测 `az mean=1.0, std=0.591`，陀螺 `std≈38.5`）；
-- 后果：`x ≈ 1365/0.59 ≈ 2300` → int8 输入大量饱和到 ±127。本次 pty 假 MCU 按固件同款算法应答，
-  50 个窗口全部返回 `[0, 0.996, 0]`（恒判 run）——`parity_check` 仍报 100% 一致、偏差 0，
-  即**当前一致性门检测不出任何缺陷**；
-- 先按 `kAccelLsbPerG=1365` / `kGyroLsbPerDps=16.384` 换算再归一化，三类输入不饱和且判断正确。
-- 两条修法二选一（涉及端侧与模型契约，需人工定）：固件在归一化前 LSB→g/dps（并同步
-  `model_meta.json` 的 `note`），或让统计量按 LSB 输出。本次未改动 `OfflineDevice/` 与
-  `parity_check.py` 的数值路径。
+### 7.1 方案 A 的落地（物理量口径，端侧负责 LSB→物理量换算）
 
-## 8. 清理
+| 文件 | 改动 |
+|---|---|
+| `OfflineDevice/App/src/tflite/attitude_quantize.h`（新增） | 后端输入预处理抽成 `attitude_quantize_window()`：`LSB → ×phys_per_lsb → (x−mean)/std → int8`。单独成文件是为了能在主机侧编译**真实代码**做数值验证（MCU 无法在本机跑） |
+| `OfflineDevice/App/src/tflite/tflite_backend.cpp` | 内联的量化循环改为调用上述函数（换算系数来自生成的 `model_data.h`） |
+| `model/src/preprocess.py` | LSB 系数提为命名常量 `ACC_LSB_PER_G=1365.0` / `GYR_LSB_PER_DPS=16.384`（单一来源） |
+| `model/src/export_tflite.py` | `model_meta.json` 新增 `sensor` 段（LSB 系数）；`note` 订正为“端侧先 LSB→g/dps 再归一化” |
+| `model/tools/gen_c_array.py` | 把这组系数生成成固件常量 `kAttitudeAccelLsbPerG/kAttitudeGyroLsbPerDps`；**并与 `attitude.config.cppm` 的 `kAccelLsbPerG/kGyroLsbPerDps` 交叉校验**，不一致直接报错退出（改量程时两边必须同步）；顺带修掉生成端 `c_float()`：`f"{1365.0:.9g}f"` 会产出非法字面量 `1365f`，此前生成物从未被编译过所以没暴露 |
+| `model/tools/parity_check.py` | `pc_reference()` 先按 `sensor` 段的系数把 LSB 换算成 g/dps 再归一化（与固件同口径）；缺 `sensor` 段直接提示重跑 `export_tflite.py` |
+
+契约（写进 `model_meta.json` 的 `note`）：**统计量一律是 g/dps；LSB→物理量由端侧负责**，
+PC 侧 `parity_check.py` 复刻同一步。这样模型工件与传感器量程解耦（改量程只需改两处常量且被生成端校验），
+后续重训/换模型无需动固件换算。
+
+### 7.2 验证
+
+- **固件编译**：`cmake --preset Debug -DATTITUDE_ENABLE_TFLM=ON && cmake --build build/Debug`
+  → 用 arm-none-eabi 编译 `model_data.cc` + `tflite_backend.cpp` 并链接 `OfflineDevice.elf` 成功
+  （`attitude_quantize_window` 符号出现在目标文件里）。
+- **真实固件代码 vs Python 逐元素比对**（主机侧编译 `attitude_quantize.h` + 生成的 `model_data.cc`，
+  喂真实 LSB 窗口）：3 个窗口（walk/run/fall）int8 输出 **0/1200 个元素差异**；新口径**零饱和**，
+  旧口径对照 594/968/516（每 1200）。
+- **端到端**：把 C++ 量化出的 int8 直接喂 `model.tflite` → walk/run/fall **三类判断正确**
+  （p = 0.836 / 0.984 / 0.801）。
+- **一致性守卫**：把模型侧 acc 系数改成 ±12g 的 2730.6667 → `gen_c_array.py` 立即报错退出。
+- **`parity_check.py`**：pty 假 MCU（按固件同款口径应答）50/50、偏差 0.00000。
+  注意该门验证的是平台与协议路径；数值口径由上面的 C++↔Python 比对兜底。
+- `ruff` 与基线一致。
+
+**仍需实机**：按方案 A 重刷固件后跑 `parity_check.py`/`field_test.py`（假 MCU 不能替代真机）。
+
+## 8. 新发现（记录，未处理）：MobiAct 数据集的单位未换算
+
+- `preprocess.load_mobiact()` 把 MobiAct 的 accelerometer/gyroscope 列**原样**拼进训练集；
+- 而 `load_sisfall()` 有换算（`×0.004` g/digit、`/14.375` dps/LSB）、`load_self()` 有换算
+  （`÷1365.0`、`÷16.384`）；
+- MobiAct v2 官方文档给的是 **m/s² 与 rad/s**，若属实，则“公开集预训练 + 自采集微调”在训练时
+  并非同一单位（相差约 9.8 倍与 57.3 倍），归一化统计量（`norm.json`）也会被公开集主导而失真。
+- **未核实**：本次 `model/data/external/` 为空（数据集未下载），无法用数据验证 MobiAct 的实际量纲。
+  需要用户确认后决定是否补换算（`acc /= 9.80665`、`gyr *= 180/π`）。
+
+## 9. 清理
 
 验证用的合成会话、`data/processed`、`artifacts/`（合成数据训出的模型）、`data/field` 报告、
-会话 PNG 均已删除——避免合成数据衍生的模型被 `gen_c_array.py` 误嵌入端侧。
+会话 PNG、以及临时生成到仓库路径的 `OfflineDevice/App/{src,inc}/model_data.{cc,h}`
+（合成数据产物，避免误烧进固件）均已删除；固件 CMake 缓存恢复为 `ATTITUDE_ENABLE_TFLM=OFF`。

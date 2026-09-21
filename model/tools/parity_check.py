@@ -34,6 +34,11 @@ except ImportError:
 ART = ROOT / "model" / "artifacts"
 META = json.loads((ART / "model_meta.json").read_text(encoding="utf-8"))
 NORM = META["input"]["normalization"]
+if "sensor" not in META:
+    sys.exit("model_meta.json 缺少 sensor 段（LSB→物理量换算系数）：重新运行 src/export_tflite.py")
+# 窗口原始 LSB → g / dps；必须与固件 attitude_quantize.h 的换算口径一致
+PHYS_PER_LSB = np.array([1.0 / META["sensor"]["accel_lsb_per_g"]] * 3
+                        + [1.0 / META["sensor"]["gyro_lsb_per_dps"]] * 3, np.float32)
 
 
 def windows_from_sessions(min_windows: int) -> list[np.ndarray]:
@@ -50,11 +55,16 @@ def windows_from_sessions(min_windows: int) -> list[np.ndarray]:
 
 
 def pc_reference(interp: tf.lite.Interpreter, win_lsb: np.ndarray) -> tuple[np.ndarray, int, float]:
+    """win_lsb: (200,6) 原始 LSB → 物理量(g/dps) → 归一化 → int8 → PC 侧概率。
+
+    与端侧 attitude_quantize_window() 同口径：漏掉 LSB→物理量这一步会让加速度通道
+    整体饱和到 ±127，PC 与 MCU 会一起错（见 model_meta.json 的 sensor 段）。
+    """
     inp = interp.get_input_details()[0]
     out_d = interp.get_output_details()[0]
     mean = np.array(NORM["mean"], np.float32)
     std = np.array(NORM["std"], np.float32)
-    x = (win_lsb - mean) / std
+    x = (win_lsb * PHYS_PER_LSB - mean) / std
     q = np.round(x / inp["quantization"][0] + inp["quantization"][1]).astype(np.int8)
     interp.set_tensor(inp["index"], q[np.newaxis])
     interp.invoke()

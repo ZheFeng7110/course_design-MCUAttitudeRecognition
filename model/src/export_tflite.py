@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
+from preprocess import ACC_LSB_PER_G, GYR_LSB_PER_DPS
 
 DATA = Path(__file__).resolve().parent.parent / "data" / "processed"
 ART = Path(__file__).resolve().parent.parent / "artifacts"
@@ -85,7 +86,11 @@ def main() -> None:
                   "normalization": {"mean": norm["mean"], "std": norm["std"]}},
         "output": {"dtype": "int8", "scale": float(out_d["quantization"][0]),
                    "zero_point": int(out_d["quantization"][1])},
-        "note": "端侧: x_norm=(x_lsb-mean)/std; int8=round(x_norm/scale)+zero_point",
+        # 端侧必须先把原始 LSB 换算成 g/dps 再归一化（norm 统计量是物理量口径）；
+        # gen_c_array.py 会把这组系数生成成固件常量，并校验与 attitude.config 一致。
+        "sensor": {"accel_lsb_per_g": ACC_LSB_PER_G, "gyro_lsb_per_dps": GYR_LSB_PER_DPS},
+        "note": "端侧: x_phys=x_lsb/lsb_per_unit（acc→g, gyr→dps）; x_norm=(x_phys-mean)/std; "
+                "int8=round(x_norm/scale)+zero_point",
     }
     (ART / "model_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"元数据 -> {ART / 'model_meta.json'}")

@@ -35,6 +35,12 @@ STRIDE = 50
 CHANNELS = ["ax", "ay", "az", "gx", "gy", "gz"]
 CLASS_MAP = {"walk": 0, "run": 1, "fall": 2}
 
+# 传感器量程与 LSB 系数：必须与 OfflineDevice/App/modules/attitude.config.cppm 的
+# kAccelLsbPerG / kGyroLsbPerDps（全项目参数源）一致，gen_c_array.py 生成端会校验。
+# 训练/导出/端侧统一用物理量（g / dps）做归一化，端侧负责 LSB→物理量换算。
+ACC_LSB_PER_G = 1365.0      # ±24g：32768/24
+GYR_LSB_PER_DPS = 16.384    # ±2000dps：32768/2000
+
 MOBIACT_LABEL = {"WAL": "walk", "JOG": "run", "RUN": "run",
                  "FOL": "fall", "FKL": "fall", "BSC": "fall", "SDL": "fall", "FSY": "fall"}
 
@@ -155,8 +161,8 @@ def load_self(root: Path) -> list[tuple[np.ndarray, int]]:
         if df.empty:
             continue
         for _, seg in df.groupby((df["label"] != df["label"].shift()).cumsum(), sort=False):
-            acc = seg[["ax", "ay", "az"]].to_numpy(float) / 1365.0
-            gyr = seg[["gx", "gy", "gz"]].to_numpy(float) / 16.384
+            acc = seg[["ax", "ay", "az"]].to_numpy(float) / ACC_LSB_PER_G
+            gyr = seg[["gx", "gy", "gz"]].to_numpy(float) / GYR_LSB_PER_DPS
             series = np.concatenate([acc, gyr], axis=1).astype(np.float32)
             out.append((series, CLASS_MAP[seg.iloc[0]["label"]]))
     return out
