@@ -1,0 +1,5 @@
+{
+    "dockerComposeFile": "../OnlineDevice/docker-compose.yml",
+    "service": "esp-idf",
+    "workspaceFolder": "/workspace"
+}
