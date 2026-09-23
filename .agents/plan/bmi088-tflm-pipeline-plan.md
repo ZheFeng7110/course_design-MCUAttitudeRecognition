@@ -65,14 +65,20 @@
 3. ⏳ 自采集（腰/胸前佩戴、每类 ≥10 分钟、≥20 次垫上摔倒）：待实机
 4. ⏳ 验证门（标注会话完整性、无丢帧）：待实机
 
-### ✅ Phase 6 — 模型训练与量化导出（工具就绪，数据到位后运行 ⏳）
+### ✅ Phase 6 — 模型训练与量化导出（公开数据集已跑通；F1 门未过 ⏳）
 
-1. ✅ `model/src/download_data.py`（MobiAct v2 + SisFall；受限时打印手动指引退出，Assumption #5）
-2. ✅ `model/src/preprocess.py`（100Hz 重采样、6ch 对齐、标签映射、200×6/50 切窗、归一化参数 JSON）
+1. 🔁 `model/src/download_data.py` **已删除**（2026-09-23）：公开数据集由用户下载并提交进仓库
+   （`model/data/external/`，来源见该目录 `data_link.md`），下载脚本失去意义。
+2. 🔁 `model/src/preprocess.py`（2026-09-23 按真实数据集重写）：MobiAct 目录树/文件名/ns 时间戳/`@DATA` 标记、
+   SisFall `D##_S<XX>_R##.txt` + 行尾 `;` + ADXL345/ITG3200 列与量纲、g/dps 统一口径、
+   100Hz/6ch 对齐、标签映射、200×6/50 切窗、**按受试者分组划分**、归一化参数 JSON。
+   详见 `.agents/docs/2026-09-23-public-dataset-adaptation.md`
 3. ✅ `model/src/train.py`（Conv1D(8,5,s2) → DWConv1D(16,7) → GAP → Dense(3)；公开集训练 + 自采集 50% 微调）
 4. ✅ `model/src/export_tflite.py`（全整数量化 + representative dataset + 元数据 JSON）
 5. ✅ `model/tools/gen_c_array.py`（生成 `App/src/model_data.cc` + `App/inc/model_data.h` + 量化常量，普通 TU）
-6. ⏳ 验证门（per-class F1 ≥ 0.85、int8 损失 < 2%、<300KB）：待数据
+6. ⏳ 验证门（per-class F1 ≥ 0.85、int8 损失 < 2%、<300KB）：2026-09-23 首次用真实公开集实测
+   → int8 损失 -0.2% ✅、`model.tflite` 4.9KB ✅、**F1 未达标**（test: walk 0.736 / run 0.768 / fall 0.856，
+   混淆以走/跑误判为跌倒为主）；瓶颈在模型容量与跨数据集域差，非类别不平衡（逆频权重实验见文档）
 
 ### ✅ Phase 7 — TFLM 集成 + 真模型上线（构建链接验证 ✅，一致性门 ⏳）
 
@@ -110,7 +116,8 @@
 2. ✅ 晶振信任 .ioc（HSE 24MHz→550MHz）；用户校正时钟树后 SPI 改分频 32
 3. ✅ 未发生 emdevif_stm32cubemx HAL 重复编译冲突
 4. ✅ tflite-micro glob 构建问题已按此条处理：排除平台目录/integration_tests；补 mlir 镜像源；CMSIS-NN 改 GLOB_RECURSE
-5. ⏳ 数据集下载受限 → `download_data.py` 打印手动指引（待数据）
+5. ✅ 数据集获取：用户手动下载并提交入库（`model/data/external/`，2026-09-23）；
+   `download_data.py` 随之删除，`preprocess.py` 按真实目录树/格式/量纲重写（见 `.agents/docs/2026-09-23-public-dataset-adaptation.md`）
 6. ⏳ 跌倒模拟安全（执行纪律，待采集）
 7. ✅ BMI088 细节以 datasheet 修正（±24g 量程）
 8. ✅ GCC15 deducing this 可用（含 `-Wtemplate-body` 环境噪声处理）

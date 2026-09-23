@@ -112,12 +112,14 @@ PC 侧 `parity_check.py` 复刻同一步。这样模型工件与传感器量程�
 
 **仍需实机**：按方案 A 重刷固件后跑 `parity_check.py`/`field_test.py`（假 MCU 不能替代真机）。
 
-## 8. 新发现（记录，未处理）：MobiAct 数据集的单位未换算
+## 8. 新发现（2026-09-23 已修复）：MobiAct 数据集的单位未换算
 
 - `preprocess.load_mobiact()` 把 MobiAct 的 accelerometer/gyroscope 列**原样**拼进训练集；
 - 而 `load_sisfall()` 有换算（`×0.004` g/digit、`/14.375` dps/LSB）、`load_self()` 有换算
   （`÷1365.0`、`÷16.384`）；
 - MobiAct v2 官方文档给的是 **m/s² 与 rad/s**，若属实，则“公开集预训练 + 自采集微调”在训练时
   并非同一单位（相差约 9.8 倍与 57.3 倍），归一化统计量（`norm.json`）也会被公开集主导而失真。
-- **未核实**：本次 `model/data/external/` 为空（数据集未下载），无法用数据验证 MobiAct 的实际量纲。
-  需要用户确认后决定是否补换算（`acc /= 9.80665`、`gyr *= 180/π`）。
+- **已核实并修复（2026-09-23）**：数据集到位后实测确认 MobiAct 确为 m/s² / rad/s
+  （静止合矢量 9.71 m/s²，陀螺原始峰值 8.62 rad/s）。`preprocess.load_mobiact()` 已按
+  `÷9.80665`、`×180/π` 换算，同时修正了目录树、ns 时间戳、SisFall 文件名/列/行尾 `;` 等问题。
+  详见 `.agents/docs/2026-09-23-public-dataset-adaptation.md`。

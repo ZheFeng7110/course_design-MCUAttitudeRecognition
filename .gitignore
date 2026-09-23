@@ -12,3 +12,7 @@ generated/
 **/__pycache__/
 **/compile_commands.json
 model/.venv/
+
+# 可再生产物：uv run src/preprocess.py、uv run src/train.py 可重建
+model/data/processed/
+model/artifacts/
