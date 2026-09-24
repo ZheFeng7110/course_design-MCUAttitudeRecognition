@@ -94,7 +94,12 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/App/inc
 )
 
-target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+file(GLOB_RECURSE checkedSources "App/modules/*.cppm" "App/src/*.cpp")
+foreach (srcFile in LISTS checkedSources)
+    get_source_file_property(compileOptions "${srcFile}" COMPILE_OPTIONS)
+    list(APPEND compileOptions -Wall -Wextra -Wpedantic)
+    set_source_files_properties("${srcFile}" PROPERTIES COMPILE_OPTIONS "${compileOptions}")
+endforeach ()
 
 # ---- TFLM 推理路径（Phase 7）：模型生成后开启 ----
 # 1. model/tools/gen_c_array.py 生成 App/src/model_data.cc
